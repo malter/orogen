@@ -175,6 +175,7 @@ int ORO_main(int argc, char* argv[])
 #endif // OROGEN_SERVICE_DISOCVERY_ACTIVATED
 <% end %>
         ("with-ros", po::value<bool>()->default_value(false), "also publish the task as ROS node, default is false")
+        ("no-qtapp", po::value<bool>()->default_value(false), "prevent generating a qApp if deployement builds with qt, default is false")
         ("rename", po::value< std::vector<std::string> >(), "rename a task of the deployment: --rename oldname:newname");
 
    po::variables_map vm;
@@ -265,6 +266,8 @@ RTT::internal::GlobalEngine::Instance(ORO_SCHED_RT, RTT::os::LowestPriority);
 <% else %>
 RTT::internal::GlobalEngine::Instance(ORO_SCHED_OTHER, RTT::os::LowestPriority);
 <% end %>
+
+    exiting = false;
 
 <% deployer.each_needed_global_cpp_initializer do |init| %>
     <%= ERB.new(init.init).result(binding) %>
@@ -438,7 +441,10 @@ RTT::internal::GlobalEngine::Instance(ORO_SCHED_OTHER, RTT::os::LowestPriority);
     RTT::corba::TaskContextServer::ThreadOrb(ORO_SCHED_OTHER, RTT::os::LowestPriority, 0);
     <% end %>
 
-    exiting = false;
+<% deployer.each_needed_global_cpp_initializer do |init| %>
+    <%= ERB.new(init.run).result(binding) %>
+<% end %>
+
     oro_thread(NULL);
 
     RTT::corba::TaskContextServer::ShutdownOrb();

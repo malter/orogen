@@ -63,6 +63,10 @@ ELSE ( DOXYGEN_FOUND )
   MESSAGE(STATUS "documentation generation disabled" )
 ENDIF ( DOXYGEN_FOUND )
 
+if (APPLE)
+  add_link_options(-Wl,-undefined,dynamic_lookup)
+endif (APPLE)
+
 #
 # Start setting up the build itself
 #

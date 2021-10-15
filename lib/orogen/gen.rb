@@ -53,39 +53,66 @@ OroGen::Gen::RTT_CPP::Deployment.register_global_initializer(
         #include <pthread.h>
         #include <QApplication>
 
-        void* qt_thread_main(void*)
+        void* qt_thread_exit(void*)
         {
-            QApplication *qapp = new QApplication(QT_ARGC, const_cast<char**>(QT_ARGV));
-            qapp->setQuitOnLastWindowClosed(false);
-            // NOTE: we do NOT need to explicitely synchronize with the QApplication
-            // startup. The only safe way to interact with parts of Qt that require
-            // an event loop is through postEvent, which is safe to use even before
-            // the QApplication gets created
-
-            qapp->exec();
+            while(!exiting) usleep(10000);
+            // due to the signal handling the qapp is
+            // reopend before this thread closes. So we have to
+            // quit the new app again.
+            qApp->exit();
             return NULL;
         }
     QT_GLOBAL_SCOPE
-    init: <<~QT_INIT_CODE,
-        pthread_t qt_thread;
-        pthread_create(&qt_thread, NULL, qt_thread_main, NULL);
-    QT_INIT_CODE
-    exit: <<~QT_EXIT_CODE,
-        QApplication::instance()->exit();
-        pthread_join(qt_thread, NULL);
-    QT_EXIT_CODE
+    run: <<~QT_RUN_CODE,
+    if( !vm.count("no-qtapp") or vm["no-qtapp"].as<bool>() == false) {
+
+      pthread_t qt_thread;
+      pthread_create(&qt_thread, NULL, qt_thread_exit, NULL);
+      pthread_t o_thread;
+      pthread_create(&o_thread, NULL, oro_thread, NULL);
+      /*
+        This loop generates a new qApp. The qApp can be closed if the application
+        main window is closed. By generating a new qApp in that case, we can
+        reconfigure the task and open a new GUI.
+      */
+      while(!exiting) {
+         QApplication *qapp = new QApplication(argc,argv);
+        qapp->exec();
+      }
+      pthread_join(qt_thread, NULL);
+      pthread_join(o_thread, NULL);
+    }
+    QT_RUN_CODE
     tasks_cmake: <<~QT_DEPLOYMENT_CMAKE,
-        find_package(Qt4 REQUIRED)
-        include(${QT_USE_FILE})
-        include_directories(${QT_INCLUDE_DIR})
-        link_directories(${QT_LIBRARY_DIR})
+        if (APPLE)
+          find_package(lib_manager)
+          lib_defaults()
+          setup_qt()
+          if (${USE_QT5})
+            qt5_use_modules(_to_be_adapted_ Widgets)
+          endif (${USE_QT5})
+        else (APPLE)
+          find_package(Qt4 REQUIRED)
+          include(${QT_USE_FILE})
+          include_directories(${QT_INCLUDE_DIR})
+          link_directories(${QT_LIBRARY_DIR})
+        endif (APPLE)
         set(CMAKE_AUTOMOC true)
     QT_DEPLOYMENT_CMAKE
     deployment_cmake: <<~QT_DEPLOYMENT_CMAKE,
-        find_package(Qt4 REQUIRED)
-        include(${QT_USE_FILE})
-        include_directories(${QT_INCLUDE_DIR})
-        link_directories(${QT_LIBRARY_DIR})
+        if (APPLE)
+          find_package(lib_manager)
+          lib_defaults()
+          setup_qt()
+          if (${USE_QT5})
+            qt5_use_modules(<%= deployer.name %> Widgets)
+          endif (${USE_QT5})
+        else (APPLE)
+          find_package(Qt4 REQUIRED)
+          include(${QT_USE_FILE})
+          include_directories(${QT_INCLUDE_DIR})
+          link_directories(${QT_LIBRARY_DIR})
+        endif (APPLE)
         target_link_libraries(<%= deployer.name %> ${QT_LIBRARIES})
         set(CMAKE_AUTOMOC true)
     QT_DEPLOYMENT_CMAKE

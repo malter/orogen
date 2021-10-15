@@ -68,7 +68,7 @@ module OroGen
                     super(name, task_context)
                 end
 
-                GlobalInitializer = Struct.new(:global_scope, :init, :exit,
+                GlobalInitializer = Struct.new(:global_scope, :init, :run, :exit,
                                                :tasks_cmake, :deployment_cmake)
 
                 @available_global_cpp_initializers = {}
@@ -81,12 +81,12 @@ module OroGen
                 # @param [Symbol] key the generator name, identical to the name used
                 #   in {Spec::TaskContext#needs_global_initializer}
                 def self.register_global_initializer(key,
-                    global_scope: "", init: "", exit: "",
+                    global_scope: "", init: "", run: "", exit: "",
                     tasks_cmake: "", deployment_cmake: "")
 
                     Spec::Deployment.register_global_initializer(key)
                     @available_global_cpp_initializers[key] = GlobalInitializer.new(
-                        global_scope, init, exit, tasks_cmake, deployment_cmake
+                        global_scope, init, run, exit, tasks_cmake, deployment_cmake
                     )
                 end
 
